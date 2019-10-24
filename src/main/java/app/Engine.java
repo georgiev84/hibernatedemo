@@ -7,6 +7,9 @@ import org.w3c.dom.ls.LSOutput;
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.persistence.Query;
+import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.text.DecimalFormat;
 import java.util.*;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
@@ -21,7 +24,7 @@ public class Engine implements Runnable{
 
     @Override
     public void run() {
-        getEmployeeWithProject();
+        removeTowns();
     }
 
 
@@ -192,4 +195,90 @@ public class Engine implements Runnable{
 
         }
     }
+
+    // 9. Find Latest 10 Project
+    private void latestProjects(){
+        this.entityManager.getTransaction().begin();
+        List<Project> projects = this.entityManager.createQuery("From Project ORDER BY startDate ASC", Project.class)
+                .getResultList();
+
+        //sorting
+        projects.sort((e1, e2) -> e2.getStartDate().compareTo(e1.getStartDate()));
+
+        int count =0;
+        for(Project project : projects){
+            if(count > 10){
+                break;
+            }
+            System.out.println("Project name: " + project.getName()
+                    + "\n   Project Description:" + project.getDescription()
+                    + "\n   Project Start Date: " + project.getStartDate()
+                    + "\n   Project End Date: " + project.getEndDate());
+            count++;
+        }
+
+
+
+    }
+
+    // 10. Increase Sales
+    private void increaseSales(){
+        this.entityManager.getTransaction().begin();
+        List<Department> departments = this.entityManager.createQuery("FROM Department WHERE name='Engineering'" +
+                "OR name='Tool Desing' OR name='Marketing' OR name='Information Services'", Department.class).getResultList();
+
+        List<Employee> employees = this.entityManager.createQuery("FROM Employee WHERE department= :department " +
+                "OR department= :department1 " +
+                "OR department= :department2", Employee.class)
+                .setParameter("department",departments.get(0))
+                .setParameter("department1", departments.get(1))
+                .setParameter("department2", departments.get(2))
+                .getResultList();
+
+        for(Employee employee : employees){
+
+            BigDecimal percent = new BigDecimal(1.12);
+            BigDecimal increasedSalary = employee.getSalary().multiply(percent);
+            employee.setSalary(increasedSalary);
+
+            DecimalFormat df = new DecimalFormat("####.00");
+            System.out.println(employee.getFirstName() + " "+ employee.getLastName() +" ($"+ df.format(employee.getSalary()) +")");
+        }
+        this.entityManager.getTransaction().commit();
+    }
+
+    // 11. Remove towns
+    private void removeTowns(){
+        this.entityManager.getTransaction().begin();
+        Scanner scanner = new Scanner(System.in);
+        String townName = scanner.nextLine();
+
+        Town town = this.entityManager.createQuery("FROM Town WHERE name= :name", Town.class)
+                .setParameter("name", townName)
+                .getSingleResult();
+
+
+        List<Address> addresses = this.entityManager.createQuery("FROM Address WHERE town_id= :townId", Address.class)
+                .setParameter("townId", town.getId())
+                .getResultList();
+
+        for(Address address : addresses){
+            this.entityManager.detach(address);
+        }
+
+        if(addresses.size()>1){
+            System.out.println(addresses.size() + " in " + town.getName() + " addresses deleted");
+        } else {
+            System.out.println(addresses.size()  + " in " + town.getName() + " address deleted");
+        }
+
+        this.entityManager.detach(town);
+
+
+        this.entityManager.getTransaction().commit();
+    }
+
+
 }
+
+
