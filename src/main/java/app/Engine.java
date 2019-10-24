@@ -1,10 +1,8 @@
 package app;
 
-import app.entities.Address;
-import app.entities.Department;
-import app.entities.Employee;
-import app.entities.Town;
+import app.entities.*;
 import org.hibernate.StatelessSession;
+import org.w3c.dom.ls.LSOutput;
 
 import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
@@ -23,7 +21,7 @@ public class Engine implements Runnable{
 
     @Override
     public void run() {
-        addingNewAddress();
+        getEmployeeWithProject();
     }
 
 
@@ -101,7 +99,7 @@ public class Engine implements Runnable{
 
     }
 
-    // 6. Adding new address
+    // 6. Adding new address - OK
     private void addingNewAddress(){
         Scanner scanner = new Scanner(System.in);
         String lastNameInput = scanner.nextLine();
@@ -123,5 +121,75 @@ public class Engine implements Runnable{
         this.entityManager.merge(employee);
 
         this.entityManager.getTransaction().commit();
+    }
+
+    // 7. Find addresses - OK
+    private void findAddresses(){
+        this.entityManager.getTransaction().begin();
+        List<Address> allAddresses = this.entityManager.createQuery("FROM Address", Address.class).getResultList();
+
+        orderByNumberEmployees(allAddresses);
+
+        int count=0;
+        for(Address addr: allAddresses){
+            if(count>10){
+                break;
+            }
+            Set<Employee> address = addr.getEmployees();
+            System.out.println(addr.getText() + " " + addr.getTown().getName() +" - "+ address.size() + " employees");
+
+            count++;
+        }
+        this.entityManager.getTransaction().commit();
+    }
+
+    private static void orderByNumberEmployees(List<Address> addresses) {
+
+        Collections.sort(addresses, new Comparator<Address>() {
+
+            @Override
+            public int compare(Address t, Address t1) {
+                return t1.getEmployees().size() - t.getEmployees().size();
+            }
+        });
+
+    }
+
+    private static void orderByTownId(List<Address> addresses) {
+
+        Collections.sort(addresses, new Comparator<Address>() {
+
+            @Override
+            public int compare(Address t, Address t1) {
+                return t.getEmployees().size() - t1.getEmployees().size();
+            }
+        });
+
+    }
+
+    // 8. Get Employee with Project
+    private void getEmployeeWithProject(){
+        this.entityManager.getTransaction().begin();
+        System.out.println("Please enter employee id: \n");
+        Scanner scanner = new Scanner(System.in);
+        int id = scanner.nextInt();
+
+        List<Employee> employees = this.entityManager.createQuery("FROM Employee WHERE id=:id ORDER BY firstName", Employee.class)
+                .setParameter("id", id)
+                .getResultList();
+
+        for(Employee employee : employees){
+            System.out.println(employee.getFirstName() + " " + employee.getLastName() + " " + employee.getJobTitle());
+
+            Set<Project> employeeProjects = employee.getProjects();
+            // sorting
+            List<Project> projectList = employeeProjects.stream().sorted((e1, e2) ->
+                    e1.getName().compareTo(e2.getName())).collect(Collectors.toList());
+
+            for(Project project : projectList){
+                System.out.println("    " + project.getName());
+            }
+
+        }
     }
 }
